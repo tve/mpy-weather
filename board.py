@@ -7,7 +7,8 @@ import machine
 # - wifi_ssid: SSID to connect to
 # - wifi_pass: password
 # - mqtt_server: IP address or hostname
-# typically board_config.py is neither checked into version control nor published
+# see board_config_tmpl.py, typically board_config.py is neither checked into version
+# control nor published
 from board_config import *
 
 # ===== LED stuff and battery voltage stuff

@@ -11,7 +11,7 @@ import ustruct as struct
 
 gc.collect()
 from ubinascii import hexlify
-import asynciocb as asyncio
+import uasyncio as asyncio
 
 gc.collect()
 from utime import ticks_ms, ticks_diff, sleep_ms
@@ -24,8 +24,6 @@ import network
 
 gc.collect()
 from sys import platform
-
-type_coroutinefunction = type((lambda: (yield)))
 
 VERSION = (0, 5, 0)
 
@@ -72,7 +70,6 @@ config = {
     'ssid':          None,
     'wifi_pw':       None,
     'listen_interval': 0,
-    'sock_cb':       None,
 }
 
 
@@ -140,7 +137,6 @@ class MQTT_base:
         self._cb = config['subs_cb']
         self._wifi_handler = config['wifi_coro']
         self._connect_handler = config['connect_coro']
-        self._sock_cb = config['sock_cb']
         # Network
         self.port = config['port']
         if self.port == 0:
@@ -241,9 +237,6 @@ class MQTT_base:
                 raise
         await asyncio.sleep_ms(_DEFAULT_MS)
         self.dprint('Connecting to broker.')
-        self._raw_sock = self._sock
-        if self._sock_cb is not None:
-            self._sock.setsockopt(socket.SOL_SOCKET, 20, self._sock_cb)
         if self._ssl:
             import ussl
             self._sock = ussl.wrap_socket(self._sock, **self._ssl_params)
@@ -367,7 +360,6 @@ class MQTT_base:
             if await self._await_pid(pid):
                 return
             # No match
-            print("Republishing to", topic, "!")
             if count >= self._max_repubs or not self.isconnected():
                 raise OSError(-1)  # Subclass to re-publish with new PID
             async with self.lock:
@@ -378,20 +370,11 @@ class MQTT_base:
     async def _publish(self, topic, msg, retain, qos, dup, pid):
         pkt = bytearray(b"\x30\0\0\0")
         pkt[0] |= qos << 1 | retain | dup << 3
-        is_stream = callable(getattr(msg, "read", None)) and callable(getattr(msg, "seek", None))
-        if is_stream:
-            mlen = msg.seek(0, 2) # seek to end to get length
-            msg.seek(0, 0) # seek to start
-            print("Publishing stream of length", mlen)
-        elif type(msg) is list:
-            mlen = sum(len(m) for m in msg)
-        else:
-            mlen = len(msg)
-        sz = 2 + len(topic) + mlen
+        sz = 2 + len(topic) + len(msg)
         if qos > 0:
             sz += 2
         if sz >= 2097152:
-            raise MQTTException('Message too long.')
+            raise MQTTException('Strings too long.')
         i = 1
         while sz > 0x7f:
             pkt[i] = (sz & 0x7f) | 0x80
@@ -403,17 +386,7 @@ class MQTT_base:
         if qos > 0:
             struct.pack_into("!H", pkt, 0, pid)
             await self._as_write(pkt, 2)
-        if type(msg) is list:
-            for m in msg: await self._as_write(m)
-        elif is_stream:
-            buf = msg.read(1024)
-            tot = 0
-            while len(buf) > 0:
-                tot += len(buf)
-                await self._as_write(buf)
-                buf = msg.read(1024)
-        else:
-            await self._as_write(msg)
+        await self._as_write(msg)
 
     # Can raise OSError if WiFi fails. Subclass traps
     async def subscribe(self, topic, qos):
@@ -474,27 +447,13 @@ class MQTT_base:
         topic_len = (topic_len[0] << 8) | topic_len[1]
         topic = await self._as_read(topic_len)
         sz -= topic_len + 2
-        retained = op & 0x01
         if op & 6:
             pid = await self._as_read(2)
             pid = pid[0] << 8 | pid[1]
             sz -= 2
-        if type(self._cb) == type_coroutinefunction:
-            async def read(n):
-                nonlocal sz
-                if not n or n < 0 or n > sz:
-                    n = sz
-                buf = await self._as_read(n)
-                sz -= len(buf)
-                return buf
-            await self._cb(topic, read, sz, bool(retained))
-            if sz > 0: print("Flushing", sz, "bytes of unread input")
-            while sz > 0:
-                buf = await self._as_read(1024 if sz >= 1024 else sz)
-                sz -= len(buf)
-        else:
-            msg = await self._as_read(sz)
-            self._cb(topic, msg, bool(retained))
+        msg = await self._as_read(sz)
+        retained = op & 0x01
+        self._cb(topic, msg, bool(retained))
         if op & 6 == 2:
             pkt = bytearray(b"\x40\x02\0\0")  # Send PUBACK
             struct.pack_into("!H", pkt, 2, pid)
@@ -560,12 +519,12 @@ class MQTTClient(MQTT_base):
         if not s.isconnected():
             raise OSError
         # Ensure connection stays up for a few secs.
-        #self.dprint('Checking WiFi integrity.')
-        #for _ in range(5):
-        #    if not s.isconnected():
-        #        raise OSError  # in 1st 5 secs
-        #    await asyncio.sleep(1)
-        #self.dprint('Got reliable connection')
+        self.dprint('Checking WiFi integrity.')
+        for _ in range(5):
+            if not s.isconnected():
+                raise OSError  # in 1st 5 secs
+            await asyncio.sleep(1)
+        self.dprint('Got reliable connection')
 
     async def connect(self):
         print("MQTT connecting")

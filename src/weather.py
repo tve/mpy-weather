@@ -1,4 +1,5 @@
 import board, machine, time, aqi
+from counter import Counter
 from mqtt_as import MQTTClient, config
 from config import wifi_led, blue_led
 import uasyncio as asyncio
@@ -15,9 +16,13 @@ QUERY_INTERVAL = const(60*1000) # milliseconds
 if board.kind == "lolin-d32":
     scl, sda = 23, 22
     pm_rx = 16
+    anemo_pin = 17
 elif board.kind == "huzzah32":
     scl, sda = 23, 22
     pm_rx = 39
+    anemo_pin = 32
+    vane_pin = 14
+    rain_pin = 33
 else:
     raise("Unknown board kind: " + board.kind)
 
@@ -27,6 +32,9 @@ got_bme680 = True
 got_si7021 = True
 got_sht31 = True
 got_pmsx003 = True
+got_anemo = False
+got_vane = True
+got_rain = True
 
 # start fan blowing on sensors
 #fan = machine.Pin(16, machine.Pin.OUT)
@@ -77,6 +85,24 @@ except Exception as e:
     got_pmsx003 = False
     print("No PMSx003 found:", e)
 
+# init anemometer
+import wind
+try:
+    machine.Pin(anemo_pin, mode=machine.Pin.IN, pull=machine.Pin.PULL_UP)
+    anemo_ctr = Counter(anemo_pin)
+    anemo = wind.Anemo(anemo_ctr, 2.5) # 2.5 mph per Hz
+except Exception as e:
+    print("Anemometer failed to init:", e)
+
+# init wind vane
+try:
+    vane = wind.Vane(vane_pin, 0, 3.3, 0)
+except Exception as e:
+    got_vane = False
+    print("Wind vane failed to init:", e)
+
+# init rain gauge
+
 # ===== asyncio and mqtt callback handlers
 
 # pulse blue LED
@@ -114,7 +140,7 @@ pm_cnt = 0
 async def query_sensors(client):
     t0 = time.ticks_ms()
     while True:
-        data = []
+        data = {}
         gas, pm25 = None, None
         # convert the bme680
         if got_bme680:
@@ -123,45 +149,56 @@ async def query_sensors(client):
                 await asyncio.sleep_ms(10)
             (t, h, p, gas) = b6.read_data()
             print("BME680: T={:.1f}°F H={:.0f}% P={:.3f}mBar G={:.3f}kΩ".format(t*1.8+32, h, p, gas/1000))
-            data += [t, h, p/1000, gas]
-        else:
-            data += [None, None, None, None]
+            (data['t_bme680'], data['h_bme680'], data['p_bme680'], data['g_bme680') += (t, h, p/1000, gas)
         # read the si7021
         if got_si7021:
             await asyncio.sleep_ms(si7.convert()+2)
             (t, h) = si7.read_temp_humi()
             print("Si7021: T={:.1f}°F H={:.0f}%".format(t*1.8+32, h))
-            data += [t, h]
-        else:
-            data += [None, None]
+            (data['t_si7021'], data['h_si7021']) = (t, h)
         # read sht31
         if got_sht31:
             await asyncio.sleep_ms(sh3.convert()+2)
             (t, h) = sh3.read_temp_humi()
             print("SHT31 : T={:.1f}°F H={:.0f}%".format(t*1.8+32, h))
-            data += [t, h]
-        else:
-            data += [None, None]
+            (data['t_sht31'], data['h_sht31']) = (t, h)
+        # read wind
+        if got_anemo:
+            (w, g) = anemo.read()
+            print("Wind  : {:.0fmph} gust:{:.0fmph}".format(w, g), end='')
+            (data['wind'], data['gust']) = (w, g)
+            if got_vane:
+                d = vane.read()
+                print(" dir={.0f}°")
+                data['wdir'] = d
+            else:
+                print()
+        # read rain gauge
+
         # insert averaged dust data
         global pm_cnt, pm_sum
         if pm_cnt > 0:
             d = [v/pm_cnt for v in pm_sum]
             pm25 = d[0]
-            data += d
+            data['pm25'] = pm25
             pm_sum = [0 for _ in pm_sum]
             pm_cnt = 0
-        else:
-            data += [None]
+
         # AQI conversions
-        data += [ aqi.tvoc_bme680(gas) if gas is not None else None ]
-        data += [ aqi.pm25(pm25) if pm25 is not None else None ]
+        if gas is not None:
+            data['aqi_tvoc'] = aqi.tvoc_bme680(gas)
+        if pm25 is not None:
+            data['aqi_pm25'] = aqi.pm25(pm25)
+
         # publish data
         if any(d is not None for d in data):
             print("pub:", data)
             await client.publish(TOPIC+"/sensors", json.dumps(data), qos = 1)
+
         # keep the dog sleeping
         global wdt_query_sensors
         wdt_query_sensors = time.ticks_ms()
+
         # sleep
         t1 = time.ticks_ms()
         dt = time.ticks_diff(t1, t0)
