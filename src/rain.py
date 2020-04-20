@@ -1,5 +1,4 @@
-import machine, time
-import uasyncio as asyncio
+import time
 
 class Rain:
     """

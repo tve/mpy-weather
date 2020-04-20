@@ -1,4 +1,3 @@
-from time import sleep_ms
 from machine import Pin, I2C
 
 # Default Address
@@ -29,11 +28,11 @@ def _crc(data):
     return crc
 
 class Si7021(object):
-    def __init__(self, addr = SI7021_I2C_DEFAULT_ADDR, scl=4, sda=5):
+    def __init__(self, i2c_dev, addr=SI7021_I2C_DEFAULT_ADDR):
         self.addr = addr
         self.cbuffer = bytearray(2)
         self.cbuffer[1] = 0x00
-        self.i2c = I2C(scl=Pin(scl), sda=Pin(sda), freq=100000)
+        self.i2c = i2c_dev
 
     def write_command(self, command_byte):
         self.cbuffer[0] = command_byte

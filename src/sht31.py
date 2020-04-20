@@ -1,5 +1,4 @@
 from machine import I2C
-import time
 
 R_HIGH   = const(1)
 R_MEDIUM = const(2)

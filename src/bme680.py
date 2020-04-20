@@ -3,7 +3,7 @@
 # unmodified
 
 from bme680_consts import *
-import math
+#import math
 import time
 
 __version__ = '1.0.2'
@@ -17,18 +17,15 @@ class BME680(BME680Data):
     :param i2c_device: Optional smbus or compatible instance for facilitating i2c communications.
 
     """
-    def __init__(self, i2c_addr=I2C_ADDR_PRIMARY, i2c_device=None):
+    def __init__(self, i2c_dev, i2c_addr=I2C_ADDR_PRIMARY):
         BME680Data.__init__(self)
 
         self.i2c_addr = i2c_addr
-        self._i2c = i2c_device
-        if self._i2c is None:
-            import smbus
-            self._i2c = smbus.SMBus(1)
+        self._i2c = i2c_dev
 
         self.chip_id = self._get_regs(CHIP_ID_ADDR, 1)
         if self.chip_id != CHIP_ID:
-            raise RuntimeError("BME680 Not Found. Invalid CHIP ID: 0x{0:02x}".format(self.chip_id))
+            raise RuntimeError("Invalid CHIP ID: 0x{0:02x}".format(self.chip_id))
 
         self.soft_reset()
         self.set_power_mode(SLEEP_MODE)
@@ -284,16 +281,16 @@ class BME680(BME680Data):
     def _set_regs(self, register, value):
         """Set one or more registers"""
         if isinstance(value, int):
-            self._i2c.write_byte_data(self.i2c_addr, register, value)
+            self._i2c.writeto_mem(self.i2c_addr, register, bytes([value]))
         else:
-            self._i2c.write_i2c_block_data(self.i2c_addr, register, value)
+            self._i2c.writeto_mem(self.i2c_addr, register, value)
 
     def _get_regs(self, register, length):
         """Get one or more registers"""
         if length == 1:
-            return self._i2c.read_byte_data(self.i2c_addr, register)
+            return self._i2c.readfrom_mem(self.i2c_addr, register, 1)[0]
         else:
-            return self._i2c.read_i2c_block_data(self.i2c_addr, register, length)
+            return self._i2c.readfrom_mem(self.i2c_addr, register, length)
 
     def _calc_temperature(self, temperature_adc):
         var1 = (temperature_adc >> 3) - (self.calibration_data.par_t1 << 1)
