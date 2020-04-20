@@ -1,7 +1,0 @@
-#! /bin/bash
-./pyb -f cp board.py board_config.py boot.py main.py :
-./pyb -f mkdir :src
-./pyb -f cp src/*.py :src/
-./pyb -f mkdir :lib
-./pyb -f mkdir :lib/uasyncio
-./pyb -f cp lib/uasyncio/*.py :lib/uasyncio/
