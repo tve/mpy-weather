@@ -42,7 +42,8 @@ class BME680(BME680Data):
         self.convert()
         while not self.ready():
             time.sleep_ms(10)
-        print("BME680 init: ", self.read_data())
+        self.read_data()
+        # print("BME680 init: ", self.read_data())
 
     def _get_calibration_data(self):
         """Retrieves the sensor calibration data and stores it in .calibration_data"""

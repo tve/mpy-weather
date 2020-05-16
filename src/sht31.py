@@ -1,11 +1,12 @@
 from machine import I2C
 
-R_HIGH   = const(1)
+R_HIGH = const(1)
 R_MEDIUM = const(2)
-R_LOW    = const(3)
+R_LOW = const(3)
+
 
 def _crc(data):
-    crc = 0xff
+    crc = 0xFF
     for byte in data:
         crc ^= byte
         for _ in range(8):
@@ -16,6 +17,7 @@ def _crc(data):
                 crc <<= 1
     return crc
 
+
 class SHT31(object):
     """
     This class implements an interface to the SHT31 temprature and humidity
@@ -24,25 +26,17 @@ class SHT31(object):
 
     # This static map helps keeping the heap and program logic cleaner
     _map_cs_r = {
-    	True: {
-            R_HIGH : b'\x2c\x06',
-            R_MEDIUM : b'\x2c\x0d',
-            R_LOW: b'\x2c\x10'
-            },
-        False: {
-            R_HIGH : b'\x24\x00',
-            R_MEDIUM : b'\x24\x0b',
-            R_LOW: b'\x24\x16'
-            }
-        }
+        True: {R_HIGH: b"\x2c\x06", R_MEDIUM: b"\x2c\x0d", R_LOW: b"\x2c\x10"},
+        False: {R_HIGH: b"\x24\x00", R_MEDIUM: b"\x24\x0b", R_LOW: b"\x24\x16"},
+    }
 
     def __init__(self, i2c, addr=0x44):
         """
         Initialize a sensor object on the given I2C bus and accessed by the
         given address.
         """
-        if i2c == None or i2c.__class__ != I2C:
-            raise ValueError('I2C object needed as argument!')
+        if i2c is None or i2c.__class__ != I2C:
+            raise ValueError("I2C object needed as argument!")
         self._i2c = i2c
         self._addr = addr
 
@@ -65,7 +59,7 @@ class SHT31(object):
         Start temperature and humidity conversion, return milliseconds to wait
         """
         if resolution not in (R_HIGH, R_MEDIUM, R_LOW):
-            raise ValueError('Wrong repeatabillity value given!')
+            raise ValueError("Wrong repeatabillity value given!")
         self._send(self._map_cs_r[clock_stretch][resolution])
         return 16
 
