@@ -5,6 +5,7 @@ from esp32_adccal import ADCCal
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+
 class Anemo:
     """
     Anemo implements functions to determine average wind speed and gust speed as measured by an
@@ -35,7 +36,7 @@ class Anemo:
             now = time.ticks_ms()
             count = self.ctr.value()
             speed = (count - last_count) / time.ticks_diff(now, last_at)
-            #log.debug("Gust: %d-%d -> %d/s -> %.1f mph", count, last_count, 1000*speed, speed*2500)
+            # log.debug("Gust: %d-%d -> %d/s -> %.1f mph", count, last_count, 1000*speed, speed*2500)
             if speed > self.wg_max:
                 self.wg_max = speed
             last_at = now
@@ -68,9 +69,15 @@ class Anemo:
         else:
             speed = (count - self.ws_count) / time.ticks_diff(now, self.ws_at) * self.fct
             gust = self.wg_max * self.fct
-            log.debug("Wind: %d-%d=%d in %dms -> %.1f = %.1f mph", count, self.ws_count,
-                    count - self.ws_count, time.ticks_diff(now, self.ws_at),
-                    1000 * (count - self.ws_count) / time.ticks_diff(now, self.ws_at), speed)
+            log.debug(
+                "Wind: %d-%d=%d in %dms -> %.1f = %.1f mph",
+                count,
+                self.ws_count,
+                count - self.ws_count,
+                time.ticks_diff(now, self.ws_at),
+                1000 * (count - self.ws_count) / time.ticks_diff(now, self.ws_at),
+                speed,
+            )
         self.ws_count = count
         self.ws_at = now
         self.wg_max = 0
@@ -106,7 +113,7 @@ class Vane:
         self.offset = offset
         self.obs_min = 65535  # observed min
         self.obs_max = 0  # observed max
-        self.cal = ADCCal() # atten=machine.ADC.ATTN_11DB, width=machine.ADC.WIDTH_10BIT)
+        self.cal = ADCCal()  # atten=machine.ADC.ATTN_11DB, width=machine.ADC.WIDTH_10BIT)
 
     def min_max(self):
         """

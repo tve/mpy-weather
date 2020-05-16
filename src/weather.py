@@ -271,18 +271,26 @@ async def query_sensors(client, topic, interval):
 
                 # display data
                 display.text(
-                    "BME {:.1f}F {:.0f}%".format(data["t_bme680"] * 1.8 + 32, data["h_bme680"]), 0, 0
+                    "BME {:.1f}F {:.0f}%".format(data["t_bme680"] * 1.8 + 32, data["h_bme680"]),
+                    0,
+                    0,
                 )
                 display.text(
-                    "    {:.0f}mB {:.0f}kO".format(data["p_bme680"] * 1000, data["g_bme680"] / 1000),
+                    "    {:.0f}mB {:.0f}kO".format(
+                        data["p_bme680"] * 1000, data["g_bme680"] / 1000
+                    ),
                     0,
                     9,
                 )
                 display.text(
-                    "SHT {:.1f}F {:.0f}%".format(data["t_sht31"] * 1.8 + 32, data["h_sht31"]), 0, 18
+                    "SHT {:.1f}F {:.0f}%".format(data["t_sht31"] * 1.8 + 32, data["h_sht31"]),
+                    0,
+                    18,
                 )
                 display.text(
-                    "Si  {:.1f}F {:.0f}%".format(data["t_si7021"] * 1.8 + 32, data["h_si7021"]), 0, 27
+                    "Si  {:.1f}F {:.0f}%".format(data["t_si7021"] * 1.8 + 32, data["h_si7021"]),
+                    0,
+                    27,
                 )
                 display.text("PM  {:.1f} Rn {:.2f}".format(data.get("pm25", -1), 0), 0, 36)
                 display.text(
