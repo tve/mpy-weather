@@ -267,7 +267,7 @@ async def query_sensors(client, topic, interval):
 
                 # publish data
                 if mode == 0 and any(d is not None for d in data):
-                    log.info("pub: %s", data)
+                    log.debug("pub: %s", data)
                     await client.publish(topic, json.dumps(data), qos=1, sync=False)
 
                 # display data
@@ -299,7 +299,8 @@ async def query_sensors(client, topic, interval):
                 )
                 display.text("Free {:d} {:d}".format(gc.mem_free(), gc.mem_maxfree()), 0, 54)
 
-            await mode_blink()
+            if mode_led:
+                await mode_blink()
             display.show()
 
         if mode == 0 and cwop:
