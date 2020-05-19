@@ -218,7 +218,7 @@ async def query_sensors(client, topic, interval):
             (w, g) = anemo.read()
             logstr = "Wind   : %.0fmph gust:%.0fmph"
             logvars = [w, g]
-            (data["wind"], data["gust"]) = (w, g)
+            (data["wind"], data["gust"]) = (w*0.44704, g*0.44704) # in m/s
             if vane:
                 d = vane.read()
                 logstr += " dir=%0f°"
@@ -254,9 +254,9 @@ async def query_sensors(client, topic, interval):
 
             elif mode == 2:
                 # Test mode for wind speed
-                wspd = data.get("wind", -1)
+                wspd = data.get("wind", -1) * 2.237
                 display.text("Wind: %.1f mph" % wspd, 0, 0)
-                wspd_str = "%4.1f" % wspd
+                wspd_str = "%4.1f" % (wspd/2.5)
                 seg7.draw_number(display, wspd_str, 10, 14, 18, 48, 1, 3)
 
             # else mode == 3: # regular function is rapid update test mode, "falls thru" into else

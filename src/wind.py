@@ -27,6 +27,11 @@ class Anemo:
         self.ws_count = 0  # count at least measurement
         self.fct = fct * 1000  # convert from pulses per millisecond to mph
 
+    # handle roll-over of 16-bit signed counter value
+    @staticmethod
+    def _count_diff(a, b):
+        return (a - b) & 0x7FFF
+
     async def _gust_poller(self, gust_ms):
         last_at = time.ticks_ms()
         last_count = self.ctr.value()
@@ -35,7 +40,7 @@ class Anemo:
             await asyncio.sleep_ms(gust_ms)
             now = time.ticks_ms()
             count = self.ctr.value()
-            speed = (count - last_count) / time.ticks_diff(now, last_at)
+            speed = self._count_diff(count, last_count) / time.ticks_diff(now, last_at)
             # log.debug("Gust: %d-%d -> %d/s -> %.1f mph", count, last_count, 1000*speed, speed*2500)
             if speed > self.wg_max:
                 self.wg_max = speed
@@ -67,15 +72,19 @@ class Anemo:
             speed = 0
             gust = 0
         else:
-            speed = (count - self.ws_count) / time.ticks_diff(now, self.ws_at) * self.fct
+            speed = (
+                self._count_diff(count, self.ws_count)
+                / time.ticks_diff(now, self.ws_at)
+                * self.fct
+            )
             gust = self.wg_max * self.fct
             log.debug(
                 "Wind: %d-%d=%d in %dms -> %.1f = %.1f mph",
                 count,
                 self.ws_count,
-                count - self.ws_count,
+                self._count_diff(count, self.ws_count),
                 time.ticks_diff(now, self.ws_at),
-                1000 * (count - self.ws_count) / time.ticks_diff(now, self.ws_at),
+                1000 * self._count_diff(count, self.ws_count) / time.ticks_diff(now, self.ws_at),
                 speed,
             )
         self.ws_count = count
