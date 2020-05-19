@@ -47,12 +47,13 @@ def init_sensors(kind):
 
     try:
         scl1_pin = machine.Pin(scl1)
-        sda1_pin = machine.Pin(sda1)
+        sda1_pin = machine.Pin(sda1, pull=machine.Pin.PULL_UP)  # pup: helps presence detection
         display = SSD1306_I2C(128, 64, machine.I2C(scl=scl1_pin, sda=sda1_pin, freq=1000000))
         display.fill(1)
         display.fill_rect(10, 10, 108, 44, 0)
         display.text("WCC Weather", 20, 20, 1)
         display.show()
+        log.info("Found display")
     except Exception as e:
         display = None
         log.warning("No display: %s", e)
